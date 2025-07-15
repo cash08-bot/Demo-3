@@ -4,39 +4,36 @@ import software.amazon.awscdk.App;
 import software.amazon.awscdk.Environment;
 import software.amazon.awscdk.StackProps;
 
-import java.util.Arrays;
+import java.util.Map;
+import java.util.HashMap;
 
 public class CdktestApp {
     public static void main(final String[] args) {
         App app = new App();
 
-        new CdktestStack(app, "CdktestStack", StackProps.builder()
-                // If you don't specify 'env', this stack will be environment-agnostic.
-                // Account/Region-dependent features and context lookups will not work,
-                // but a single synthesized template can be deployed anywhere.
+        // Retrieve the 'env' context passed from the CDK CLI (e.g., --context env=dev)
+        // This 'envId' is used for naming and potentially for conditional logic within your stack,
+        // but not directly for account/region which will come from environment variables.
+        String envId = (String) app.getNode().tryGetContext("env");
+        if (envId == null || envId.isEmpty()) {
+            System.err.println("Warning: 'env' context not provided. Defaulting to 'dev'.");
+            envId = "dev"; // Default to 'dev' if no context is provided
+        }
 
-                // Uncomment the next block to specialize this stack for the AWS Account
-                // and Region that are implied by the current CLI configuration.
-                /*
-                .env(Environment.builder()
-                        .account(System.getenv("CDK_DEFAULT_ACCOUNT"))
-                        .region(System.getenv("CDK_DEFAULT_REGION"))
-                        .build())
-                */
+        // The AWS account ID and region will be picked up from environment variables
+        // (CDK_DEFAULT_ACCOUNT and CDK_DEFAULT_REGION) which are set by
+        // aws-actions/configure-aws-credentials in GitHub Actions.
+        Environment awsEnvironment = Environment.builder()
+                .account(System.getenv("CDK_DEFAULT_ACCOUNT"))
+                .region(System.getenv("CDK_DEFAULT_REGION"))
+                .build();
 
-                // Uncomment the next block if you know exactly what Account and Region you
-                // want to deploy the stack to.
-                
-                .env(Environment.builder()
-                        .account("123456789012")
-                        .region("us-east-1")
-                        .build())
-                
-
-                // For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
+        // Create the CdktestStack with environment-specific props.
+        // The stack name can still incorporate the envId for clarity.
+        new CdktestStack(app, "CdktestStack-" + envId, StackProps.builder()
+                .env(awsEnvironment)
                 .build());
 
         app.synth();
     }
 }
-
