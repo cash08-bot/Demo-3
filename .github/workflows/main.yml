@@ -1,0 +1,65 @@
+name: Automate CDK (Validate + Synth Trigger)
+
+on:
+  push:
+    branches: [dev, stg, prd]
+  pull_request:
+    branches: [dev, stg, prd, main]
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+  pull-requests: write
+
+jobs:
+  validate-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR Source Branch
+        run: |
+          echo "SOURCE BRANCH: ${GITHUB_HEAD_REF}"
+          echo "TARGET BRANCH: ${GITHUB_BASE_REF}"
+
+          if [[ "${GITHUB_BASE_REF}" == "dev" ]]; then
+            if [[ ! "${GITHUB_HEAD_REF}" =~ ^(feature|bug|fix)/.+$ ]]; then
+              echo "❌ Branch name must start with 'feature/', 'bug/', or 'fix/' when targeting 'dev'"
+              exit 1
+            fi
+          fi
+
+          if [[ "${GITHUB_BASE_REF}" == "stg" && "${GITHUB_HEAD_REF}" != "dev" ]]; then
+            echo "❌ Only 'dev' can raise PRs to 'stg'"
+            exit 1
+          fi
+
+          if [[ "${GITHUB_BASE_REF}" == "prd" && "${GITHUB_HEAD_REF}" != "stg" ]]; then
+            echo "❌ Only 'stg' can raise PRs to 'prd'"
+            exit 1
+          fi
+
+          if [[ "${GITHUB_BASE_REF}" == "main" && "${GITHUB_HEAD_REF}" != "prd" ]]; then
+            echo "❌ Only 'prd' can raise PRs to 'main'"
+            exit 1
+          fi
+
+          echo "✅ PR branch structure is valid."
+
+  synth-and-upload-dev:
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    uses: ./.github/workflows/cdk-synth-upload.yml
+    with:
+      env_id: dev
+
+  synth-and-upload-stg:
+    if: github.ref == 'refs/heads/stg' && github.event_name == 'push'
+    uses: ./.github/workflows/cdk-synth-upload.yml
+    with:
+      env_id: stg
+
+  synth-and-upload-prd:
+    if: github.ref == 'refs/heads/prd' && github.event_name == 'push'
+    uses: ./.github/workflows/cdk-synth-upload.yml
+    with:
+      env_id: prd

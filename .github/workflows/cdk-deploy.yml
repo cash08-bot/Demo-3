@@ -1,0 +1,63 @@
+name: CDK Deploy (Auto after PR merge)
+
+on:
+  push:
+    branches: [prod, dev, stg]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - branch: dev
+            env_name: dev
+          - branch: stg
+            env_name: stg
+          - branch: prod
+            env_name: prod
+
+    environment: ${{ matrix.env_name }}
+
+    env:
+      ENV_ID: ${{ matrix.env_name }}
+      AWS_REGION: us-east-1
+
+    steps:
+      - name: Exit if not target branch
+        if: ${{ github.ref != format('refs/heads/{0}', matrix.branch) }}
+        run: echo "Not matching matrix.branch. Skipping..." && exit 0
+
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
+          role-session-name: Github-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Node, Maven, Java
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install CDK & Build
+        run: |
+          npm install -g aws-cdk
+          mvn clean install
+
+      - name: CDK Deploy
+        run: |
+          echo "Deploying to $ENV_ID"
+          cdk deploy --require-approval never --context env=${{ env.ENV_ID }}
