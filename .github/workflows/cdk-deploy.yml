@@ -34,10 +34,10 @@ jobs:
             # This role should have permissions to deploy to the stg environment.
             role_arn: arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo
           - branch: prod # Added the 'prod' environment to the matrix
-            env_name: prod
+            #env_name: prod
             # IMPORTANT: Replace 'account id 3' with your actual AWS account ID for prod.
             # This role should have permissions to deploy to the prod environment.
-            role_arn: arn:aws:iam::account id 3:role/Cdk-deploy-prd-demo # Placeholder for PRD role ARN
+            #role_arn: arn:aws:iam::account id 3:role/Cdk-deploy-prd-demo # Placeholder for PRD role ARN
 
     # Associates the job with a GitHub Environment.
     # You MUST configure these environments in your GitHub repository settings
