@@ -75,7 +75,7 @@ jobs:
           username: akashmuduganti0819@gmail.com
           password: qrok yuvw nlrs btim
           subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
-          to: cloudteam@example.com
+          to: akashreddy6211@gmail.com
           from: CDK Bot akashmuduganti0819@gmail.com
           secure: false
           body: |
