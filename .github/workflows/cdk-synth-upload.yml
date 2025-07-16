@@ -27,8 +27,8 @@ jobs:
                       'test-sample-3' }} # Default for 'prd' or any other env_id
       # --- IMPORTANT CHANGE: Explicitly map secrets to environment variables ---
       # This helps ensure the secrets are properly evaluated and available to the step.
-      GMAIL_USER_FOR_EMAIL: ${{ secrets.GMAIL_USER }}
-      GMAIL_PASS_FOR_EMAIL: ${{ secrets.GMAIL_PASS }}
+      GMAIL_USER_FOR_EMAIL: ${{ akashmuduganti0819@gmail.com }}
+      GMAIL_PASS_FOR_EMAIL: ${{ qphw oucm jgbt daxv }}
       # -------------------------------------------------------------------------
 
     steps:
