@@ -47,12 +47,14 @@ jobs:
 
       - name: Run CDK synth
         run: |
-          mkdir -p cdk.out
-          cdk synth --context env=${{ env.ENV_ID }} --output cdk.out > cdk.out/cdk-${{ env.ENV_ID }}.template.yml
-          if [ $? -ne 0 ]; then
+          mkdir -p cfn
+          TEMPLATE_FILE=cfn/cdk-${ENV_ID}.template.yml
+          cdk synth --context env=${ENV_ID} --output cfn > $TEMPLATE_FILE
+           if [ $? -ne 0 ]; then
             echo "CDK synth failed"
             exit 1
           fi
+          echo "Synth completed: $TEMPLATE_FILE"
 
       - name: Configure AWS credentials (OIDC for dev only)
         if: env.ENV_ID == 'dev'
