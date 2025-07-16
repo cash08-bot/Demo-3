@@ -53,7 +53,7 @@ jobs:
 
       - name: Run CDK synth and save to cfn folder
         run: |
-          mkdir -p cfn
+          mkdir -p ./cfn
           TEMPLATE_FILE=cfn/cdk-${ENV_ID}.template.yml
           cdk synth --context env=${ENV_ID} > $TEMPLATE_FILE
           if [ $? -ne 0 ]; then
@@ -94,27 +94,27 @@ jobs:
             #echo " Committed template to GitHub."
           #fi
 
-      - name: Send Approval Email via Gmail
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.GMAIL_USER }}
-          password: ${{ secrets.GMAIL_PASS }}
-          subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
-          to: cloudteam@example.com
-          from: CDK Bot <${{ secrets.GMAIL_USER }}>
-          secure: false
-          body: |
-            Hello Cloud Team,
+      #- name: Send Approval Email via Gmail
+        #uses: dawidd6/action-send-mail@v3
+        #with:
+          #server_address: smtp.gmail.com
+          #server_port: 587
+          #username: ${{ secrets.GMAIL_USER }}
+          #password: ${{ secrets.GMAIL_PASS }}
+          #subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
+          #to: cloudteam@example.com
+          #from: CDK Bot <${{ secrets.GMAIL_USER }}>
+          #secure: false
+          #body: |
+            #Hello Cloud Team,
 
-            A new CloudFormation template has been synthesized for **${{ env.ENV_ID }}**.
+            #A new CloudFormation template has been synthesized for **${{ env.ENV_ID }}**.
 
-            📄 Review the synthesized template:
-            https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/cfn/cdk-${{ env.ENV_ID }}.template.yml
+           # 📄 Review the synthesized template:
+            #https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/cfn/cdk-${{ env.ENV_ID }}.template.yml
 
-            🔗 View GitHub Action:
-            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            #🔗 View GitHub Action:
+            #https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            Regards,  
-            CDK Automation Bot*/
+            #Regards,  
+            #CDK Automation Bot*/
