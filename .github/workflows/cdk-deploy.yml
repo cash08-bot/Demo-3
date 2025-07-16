@@ -1,7 +1,3 @@
-# Name: CDK Deploy (Auto after PR merge)
-# This workflow deploys the CDK stack to different environments (dev, stg, prod)
-# and includes a manual approval step using GitHub Environments for 'stg' and 'prod'.
-
 name: CDK Deploy (Auto after PR merge)
 
 on:
@@ -9,40 +5,25 @@ on:
     branches:
       - dev
       - stg
-      - prod # Triggers on pushes to dev, stg, or prod branches
 
 permissions:
-  id-token: write # Required for OIDC authentication with AWS
-  contents: read  # Required to checkout the repository code
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest # Uses the latest Ubuntu runner
+    runs-on: ubuntu-latest
 
     strategy:
-      # Defines a matrix for different deployment environments
       matrix:
         include:
           - branch: dev
             env_name: dev
-            # IMPORTANT: Replace 'account id 1' with your actual AWS account ID for dev.
-            # This role should have permissions to deploy to the dev environment.
             role_arn: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
           - branch: stg
             env_name: stg
-            # IMPORTANT: Replace 'account id 2' with your actual AWS account ID for stg.
-            # This role should have permissions to deploy to the stg environment.
             role_arn: arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo
 
-          - branch: prod # Added the 'prod' environment to the matrix
-            env_name: prod
-            # IMPORTANT: Replace 'account id 3' with your actual AWS account ID for prod.
-            # This role should have permissions to deploy to the prod environment.
-            #role_arn: arn:aws:iam::account id 3:role/Cdk-deploy-prd-demo # Placeholder for PRD role ARN
-
-    # Associates the job with a GitHub Environment.
-    # You MUST configure these environments in your GitHub repository settings
-    # (Settings -> Environments) and add required reviewers for 'stg' and 'prod'.
     environment: ${{ matrix.env_name }}
 
     env:
@@ -51,31 +32,18 @@ jobs:
 
     steps:
       - name: Exit if not target branch
-        # Skips the deployment if the current branch does not match the matrix branch
         if: ${{ github.ref != format('refs/heads/{0}', matrix.branch) }}
         run: echo "Not matching matrix.branch. Skipping..." && exit 0
 
-      - uses: actions/checkout@v3 # Checks out your repository code
+      - uses: actions/checkout@v3
 
       - name: Configure AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          # Assumes the specific IAM role defined in the matrix for the current environment
-          role-to-assume: ${{ matrix  .role_arn }}
-          role-session-name: Github-Role # Optional: provides a name for the assumed role session
-          aws-region: ${{ env.AWS_REGION }} # Sets the AWS region for credentials
+          role-to-assume: ${{ matrix.role_arn }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up Node, Maven, Java
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Install CDK & Build
+      - name: Set up Node/Maven/Java
         run: |
           npm install -g aws-cdk
           mvn clean install
@@ -83,7 +51,4 @@ jobs:
       - name: CDK Deploy
         run: |
           echo "Deploying to $ENV_ID"
-          # Deploys the CDK stack.
-          # '--require-approval never' is used here because the approval is handled by GitHub Environments.
-          # The '--context env=${{ env.ENV_ID }}' passes the environment context to your CDK app.
           cdk deploy --require-approval never --context env=${{ env.ENV_ID }}
