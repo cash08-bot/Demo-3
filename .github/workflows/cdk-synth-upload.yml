@@ -77,22 +77,22 @@ jobs:
             s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
             --region $AWS_REGION
 
-      - name: Commit synthesized template to repo
-        run: |
-          git config --global user.name "cdk-bot"
-          git config --global user.email "cdk-bot@example.com"
+      #- name: Commit synthesized template to repo
+        #run: |
+          #git config --global user.name "cdk-bot"
+          #git config --global user.email "cdk-bot@example.com"
 
-          FILE=cfn/cdk-${ENV_ID}.template.yml
-          git pull --rebase
-          git add $FILE
+          #FILE=cfn/cdk-${ENV_ID}.template.yml
+          #git pull --rebase
+          #git add $FILE
 
-          if git diff --cached --quiet; then
-            echo " No changes to commit."
-          else
-            git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
-            git push
-            echo " Committed template to GitHub."
-          fi
+          #if git diff --cached --quiet; then
+            #echo " No changes to commit."
+          #else
+            #git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
+            #git push
+            #echo " Committed template to GitHub."
+          #fi
 
       - name: Send Approval Email via Gmail
         uses: dawidd6/action-send-mail@v3
