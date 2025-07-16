@@ -1,4 +1,4 @@
-name: CDK Synth & Upload + Email Notification
+name: CDK Synth & Upload + Commit + Email
 
 on:
   workflow_call:
@@ -6,6 +6,9 @@ on:
       env_id:
         required: true
         type: string
+
+permissions:
+  contents: write
 
 jobs:
   synth-and-upload:
@@ -15,13 +18,13 @@ jobs:
       ENV_ID: ${{ inputs.env_id }}
       AWS_REGION: us-east-1
       BUCKET_NAME: test-1-git
-      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || 
-                      inputs.env_id == 'stg' && 'test-sample-2' || 
-                      'test-sample-3' }}
+      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || inputs.env_id == 'stg' && 'test-sample-2' }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -36,8 +39,8 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
 
       - name: Install AWS CDK
         run: npm install -g aws-cdk
@@ -45,49 +48,71 @@ jobs:
       - name: Build Java CDK project
         run: mvn clean install
 
-      - name: Run CDK synth and export template
+      - name: Run CDK synth
         run: |
-          mkdir -p cdk.out
-          cdk synth --context env=${{ env.ENV_ID }} --output cdk.out > cdk.out/cdk-${{ env.ENV_ID }}.template.yml
+          mkdir -p cfn
+          TEMPLATE_FILE=cfn/cdk-${ENV_ID}.template.yml
+          cdk synth --context env=${ENV_ID} --output cfn > $TEMPLATE_FILE
           if [ $? -ne 0 ]; then
-            echo "CDK synth failed"
+            echo "❌ CDK synth failed"
             exit 1
           fi
+          echo "✅ Synth completed: $TEMPLATE_FILE"
 
       - name: Configure AWS credentials (OIDC)
+        if: env.ENV_ID == 'dev'
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload CloudFormation Template to S3
+      - name: Upload to S3 (dev only)
+        if: env.ENV_ID == 'dev'
         run: |
           FILE_NAME=${ENV_ID}-test-demo-stack-${GITHUB_SHA::7}.yml
-          aws s3 cp cdk.out/cdk-${ENV_ID}.template.yml \
+          aws s3 cp cfn/cdk-${ENV_ID}.template.yml \
             s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
             --region $AWS_REGION
+
+      - name: Commit synthesized template to git repo
+        run: |
+          git config --global user.name "cdk-bot"
+          git config --global user.email "cdk-bot@example.com"
+
+          FILE=cfn/cdk-${ENV_ID}.template.yml
+
+          git pull --rebase
+          git add $FILE
+
+          if git diff --cached --quiet; then
+            echo "⚠️ No changes to commit."
+          else
+            git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
+            git push
+            echo "🚀 Committed updated template to GitHub."
+          fi
 
       - name: Send Approval Email via Gmail
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
           server_port: 587
-          username: ${{ secrets.GMAIL_USER }}
-          password: ${{ secrets.GMAIL_PASS }}
+          username: akashmuduganti0819@gmail.com
+          password: qrok yuvw nlrs btim
           subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
-          to: cloudteam@example.com
-          from: CDK Bot <${{ secrets.GMAIL_USER }}>
+          to: akashreddy6211@gmail.com
+          from: CDK Bot <akashmuduganti0819@gmail.com>
           secure: false
           body: |
             Hello Cloud Team,
 
             A new CloudFormation template has been synthesized for **${{ env.ENV_ID }}**.
 
-            📄 Template:
-            https://s3.amazonaws.com/${{ env.BUCKET_NAME }}/${{ env.FOLDER_NAME }}/${{ env.ENV_ID }}-test-demo-stack-${{ github.sha }}.yml
+            📄 Review the synthesized template:
+            https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/cfn/cdk-${{ env.ENV_ID }}.template.yml
 
-            🔗 Review & Approve Deployment:
+            🔗 View GitHub Action:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            Regards,
+            Regards,  
             CDK Automation Bot
