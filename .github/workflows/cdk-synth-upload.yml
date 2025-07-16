@@ -18,7 +18,7 @@ jobs:
       FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || inputs.env_id == 'stg' && 'test-sample-2' }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -42,7 +42,7 @@ jobs:
       - name: Install AWS CDK
         run: npm install -g aws-cdk
 
-      - name: Build Java CDK project
+      - name: Build CDK project
         run: mvn clean install
 
       - name: Run CDK synth
@@ -54,7 +54,7 @@ jobs:
             exit 1
           fi
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials (OIDC for dev only)
         if: env.ENV_ID == 'dev'
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -69,7 +69,7 @@ jobs:
             s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
             --region $AWS_REGION
 
-      - name: Commit synthesized template to repo
+      - name: Commit synthesized template to repository
         run: |
           git config --global user.name "cdk-bot"
           git config --global user.email "cdk-bot@example.com"
@@ -82,6 +82,8 @@ jobs:
 
           git add $FOLDER/$FILE_NAME
           git commit -m "Add synthesized template for ${ENV_ID}: ${GITHUB_SHA::7}" || echo "No changes to commit"
+
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push
 
       - name: Send Approval Email via Gmail
@@ -93,7 +95,7 @@ jobs:
           password: qrok yuvw nlrs btim
           subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
           to: akashreddy6211@gmail.com
-          from: CDK Bot akashmuduganti0819@gmail.com
+          from: CDK Bot <akashmuduganti0819@gmail.com>
           secure: false
           body: |
             Hello Cloud Team,
