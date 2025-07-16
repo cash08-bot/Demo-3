@@ -7,6 +7,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   synth-and-upload:
     runs-on: ubuntu-latest
@@ -50,11 +53,11 @@ jobs:
           mkdir -p cfn
           TEMPLATE_FILE=cfn/cdk-${ENV_ID}.template.yml
           cdk synth --context env=${ENV_ID} --output cfn > $TEMPLATE_FILE
-           if [ $? -ne 0 ]; then
-            echo "CDK synth failed"
+          if [ $? -ne 0 ]; then
+            echo "❌ CDK synth failed"
             exit 1
           fi
-          echo "Synth completed: $TEMPLATE_FILE"
+          echo "✅ Synth completed: $TEMPLATE_FILE"
 
       - name: Configure AWS credentials (OIDC)
         if: env.ENV_ID == 'dev'
@@ -67,24 +70,27 @@ jobs:
         if: env.ENV_ID == 'dev'
         run: |
           FILE_NAME=${ENV_ID}-test-demo-stack-${GITHUB_SHA::7}.yml
-          aws s3 cp cdk.out/cdk-${ENV_ID}.template.yml \
+          aws s3 cp cfn/cdk-${ENV_ID}.template.yml \
             s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
             --region $AWS_REGION
 
-      - name: Commit synthesized template to repo
+      - name: Commit synthesized template to git repo
         run: |
           git config --global user.name "cdk-bot"
           git config --global user.email "cdk-bot@example.com"
 
-          FOLDER=synth-templates/${ENV_ID}
-          FILE_NAME=cdk-${ENV_ID}.template.yml
+          FILE=cfn/cdk-${ENV_ID}.template.yml
 
-          mkdir -p $FOLDER
-          cp cdk.out/$FILE_NAME $FOLDER/
+          git pull --rebase
+          git add $FILE
 
-          git add $FOLDER/$FILE_NAME
-          git commit -m "Add synthesized template for ${ENV_ID}: ${GITHUB_SHA::7}" || echo "No changes to commit"
-          git push
+          if git diff --cached --quiet; then
+            echo "⚠️ No changes to commit."
+          else
+            git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
+            git push
+            echo "🚀 Committed updated template to GitHub."
+          fi
 
       - name: Send Approval Email via Gmail
         uses: dawidd6/action-send-mail@v3
@@ -95,7 +101,7 @@ jobs:
           password: qrok yuvw nlrs btim
           subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
           to: akashreddy6211@gmail.com
-          from: CDK Bot akashmuduganti0819@gmail.com
+          from: CDK Bot <akashmuduganti0819@gmail.com>
           secure: false
           body: |
             Hello Cloud Team,
@@ -103,7 +109,7 @@ jobs:
             A new CloudFormation template has been synthesized for **${{ env.ENV_ID }}**.
 
             📄 Review the synthesized template:
-            https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/synth-templates/${{ env.ENV_ID }}/cdk-${{ env.ENV_ID }}.template.yml
+            https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/cfn/cdk-${{ env.ENV_ID }}.template.yml
 
             🔗 View GitHub Action:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
