@@ -43,12 +43,12 @@ jobs:
 
   synth-and-upload-dev:
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
-    uses: ./.github/workflows/cdk-synth-upload.yml
+    uses: cash08-bot/Demo-3/.github/workflows/cdk-synth-upload.yml@dev
     with:
       env_id: dev
 
   synth-and-upload-stg:
     if: github.ref == 'refs/heads/stg' && github.event_name == 'push'
-    uses: ./.github/workflows/cdk-synth-upload.yml
+    uses: cash08-bot/Demo-3/.github/workflows/cdk-synth-upload.yml@stg
     with:
       env_id: stg
