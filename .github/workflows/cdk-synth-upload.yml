@@ -18,7 +18,9 @@ jobs:
       ENV_ID: ${{ inputs.env_id }}
       AWS_REGION: us-east-1
       BUCKET_NAME: test-1-git
-      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || inputs.env_id == 'stg' && 'test-sample-2' }}
+      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || 
+                      inputs.env_id == 'stg' && 'test-sample-2' || 
+                      'test-sample-3' }}
 
     steps:
       - name: Checkout repo
@@ -48,11 +50,11 @@ jobs:
       - name: Build Java CDK project
         run: mvn clean install
 
-      - name: Run CDK synth
+      - name: Run CDK synth and save to cfn folder
         run: |
           mkdir -p cfn
           TEMPLATE_FILE=cfn/cdk-${ENV_ID}.template.yml
-          cdk synth --context env=${ENV_ID} --output cfn > $TEMPLATE_FILE
+          cdk synth --context env=${ENV_ID} > $TEMPLATE_FILE
           if [ $? -ne 0 ]; then
             echo "❌ CDK synth failed"
             exit 1
@@ -74,13 +76,12 @@ jobs:
             s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
             --region $AWS_REGION
 
-      - name: Commit synthesized template to git repo
+      - name: Commit synthesized template to repo
         run: |
           git config --global user.name "cdk-bot"
           git config --global user.email "cdk-bot@example.com"
 
           FILE=cfn/cdk-${ENV_ID}.template.yml
-
           git pull --rebase
           git add $FILE
 
@@ -89,7 +90,7 @@ jobs:
           else
             git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
             git push
-            echo "🚀 Committed updated template to GitHub."
+            echo "🚀 Committed template to GitHub."
           fi
 
       - name: Send Approval Email via Gmail
@@ -97,11 +98,11 @@ jobs:
         with:
           server_address: smtp.gmail.com
           server_port: 587
-          username: akashmuduganti0819@gmail.com
-          password: qrok yuvw nlrs btim
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASS }}
           subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
-          to: akashreddy6211@gmail.com
-          from: CDK Bot <akashmuduganti0819@gmail.com>
+          to: cloudteam@example.com
+          from: CDK Bot <${{ secrets.GMAIL_USER }}>
           secure: false
           body: |
             Hello Cloud Team,
