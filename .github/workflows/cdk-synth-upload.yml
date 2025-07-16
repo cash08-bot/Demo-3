@@ -15,9 +15,7 @@ jobs:
       ENV_ID: ${{ inputs.env_id }}
       AWS_REGION: us-east-1
       BUCKET_NAME: test-1-git
-      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || 
-                      inputs.env_id == 'stg' && 'test-sample-2' || 
-                      'test-sample-3' }}
+      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || inputs.env_id == 'stg' && 'test-sample-2' }}
 
     steps:
       - name: Checkout repo
@@ -36,8 +34,8 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
 
       - name: Install AWS CDK
         run: npm install -g aws-cdk
@@ -45,7 +43,7 @@ jobs:
       - name: Build Java CDK project
         run: mvn clean install
 
-      - name: Run CDK synth and export template
+      - name: Run CDK synth
         run: |
           mkdir -p cdk.out
           cdk synth --context env=${{ env.ENV_ID }} --output cdk.out > cdk.out/cdk-${{ env.ENV_ID }}.template.yml
@@ -57,10 +55,10 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
+          role-to-assume: ${{ env.ENV_ID == 'dev' && 'arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.' || env.ENV_ID == 'stg' && 'arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo' || '' }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload CloudFormation Template to S3
+      - name: Upload to S3
         run: |
           FILE_NAME=${ENV_ID}-test-demo-stack-${GITHUB_SHA::7}.yml
           aws s3 cp cdk.out/cdk-${ENV_ID}.template.yml \
