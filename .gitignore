@@ -11,7 +11,8 @@ target
 # CDK asset staging directory
 .cdk.staging
 cdk.out
-
+/cfn/*
+!cfn/.keep
 =======
 # Compiled class file
 *.class
