@@ -1,8 +1,3 @@
-# Name: CDK Synth & Upload + Email Notification
-# This reusable workflow synthesizes the CDK project, uploads the CloudFormation
-# template to S3, and sends an email notification for approval.
-# It is designed to be called by other workflows.
-
 name: CDK Synth & Upload + Email Notification
 
 on:
@@ -11,97 +6,81 @@ on:
       env_id:
         required: true
         type: string
-        description: The environment ID (e.g., 'dev', 'stg', 'prd') for which to synthesize and upload.
 
 jobs:
   synth-and-upload:
-    runs-on: ubuntu-latest # Uses the latest Ubuntu runner
+    runs-on: ubuntu-latest
 
     env:
-      ENV_ID: ${{ inputs.env_id }} # Environment ID passed from the calling workflow
-      AWS_REGION: us-east-1       # AWS region where resources will be deployed
-      BUCKET_NAME: test-1-git     # S3 bucket name for storing CloudFormation templates
-      # Determines the S3 folder based on the environment ID
-      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' ||
-                      inputs.env_id == 'stg' && 'test-sample-2' ||
-                      'test-sample-3' }} # Default for 'prd' or any other env_id
-      # --- IMPORTANT CHANGE: Explicitly map secrets to environment variables ---
-      # This helps ensure the secrets are properly evaluated and available to the step.
-      GMAIL_USER_FOR_EMAIL: ${{ akashmuduganti0819@gmail.com }}
-      GMAIL_PASS_FOR_EMAIL: ${{ qphw oucm jgbt daxv }}
-      # -------------------------------------------------------------------------
+      ENV_ID: ${{ inputs.env_id }}
+      AWS_REGION: us-east-1
+      BUCKET_NAME: test-1-git
+      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || 
+                      inputs.env_id == 'stg' && 'test-sample-2' || 
+                      'test-sample-3' }}
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3 # Checks out your repository code
+        uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18 # Installs Node.js version 18, required for CDK
+          node-version: 18
 
       - name: Set up Maven
         uses: s4u/setup-maven-action@v1.11.0
         with:
-          maven-version: '3.9.6' # Installs Maven version 3.9.6, required for Java project build
+          maven-version: '3.9.6'
 
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin' # Uses Temurin distribution for Java
-          java-version: '17'      # Installs Java 17
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Install AWS CDK
-        run: npm install -g aws-cdk # Installs AWS CDK globally
+        run: npm install -g aws-cdk
 
       - name: Build Java CDK project
-        run: mvn clean install # Builds your Java CDK project using Maven
+        run: mvn clean install
 
       - name: Run CDK synth and export template
         run: |
-          mkdir -p cdk.out # Creates a directory for CDK output
-          # Synthesizes the CDK application and exports the CloudFormation template
-          # The template name includes the environment ID.
+          mkdir -p cdk.out
           cdk synth --context env=${{ env.ENV_ID }} --output cdk.out > cdk.out/cdk-${{ env.ENV_ID }}.template.yml
           if [ $? -ne 0 ]; then
-            echo "CDK synth failed" # Exits if CDK synth fails
+            echo "CDK synth failed"
             exit 1
           fi
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          # IMPORTANT: Replace 'YOUR_ACCOUNT_ID' and 'YOUR_OIDC_ROLE' with your actual AWS account ID and IAM role ARN.
-          role-to-assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction. # Using your provided role ARN
-          aws-region: ${{ env.AWS_REGION }} # Sets the AWS region for credentials
+          role-to-assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload CloudFormation Template to S3
         run: |
-          # Defines the file name for the uploaded template, including SHA for uniqueness
           FILE_NAME=${ENV_ID}-test-demo-stack-${GITHUB_SHA::7}.yml
-          # Uploads the synthesized CloudFormation template to the specified S3 bucket and folder
           aws s3 cp cdk.out/cdk-${ENV_ID}.template.yml \
             s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
             --region $AWS_REGION
-          echo "Uploaded template to: https://s3.amazonaws.com/${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME}"
 
       - name: Send Approval Email via Gmail
-        uses: dawidd6/action-send-mail@v3 # Uses the action to send emails
+        uses: dawidd6/action-send-mail@v3
         with:
-          server_address: smtp.gmail.com # Gmail SMTP server address
-          server_port: 587             # Gmail SMTP server port
-          # --- IMPORTANT CHANGE: Use the new environment variables for username and password ---
-          username: ${{ env.GMAIL_USER_FOR_EMAIL }}
-          password: ${{ env.GMAIL_PASS_FOR_EMAIL }}
-          # -------------------------------------------------------------------------------------
-          subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}" # Email subject
-          to: cloudteam@example.com # Recipient email address for approval. Replace with your team's email.
-          # --- IMPORTANT CHANGE: Use the new environment variable for the 'from' email ---
-          from: CDK Bot <${{ env.GMAIL_USER_FOR_EMAIL }}>
-          # ------------------------------------------------------------------------------
-          secure: false # Set to true if using SSL/TLS, false for STARTTLS (port 587)
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: akashmuduganti0819@gmail.com
+          password: qrok yuvw nlrs btim
+          subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
+          to: cloudteam@example.com
+          from: CDK Bot akashmuduganti0819@gmail.com
+          secure: false
           body: |
             Hello Cloud Team,
+
             A new CloudFormation template has been synthesized for **${{ env.ENV_ID }}**.
 
             📄 Template:
@@ -109,8 +88,6 @@ jobs:
 
             🔗 Review & Approve Deployment:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            Please review the template and approve the deployment in GitHub Actions if everything looks good.
 
             Regards,
             CDK Automation Bot
