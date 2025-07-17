@@ -1,90 +1,69 @@
-name: CDK Synth & Upload + Commit
+name: CDK Synth and Upload
 
 on:
-  workflow_call:
-    inputs:
-      env_id:
-        required: true
-        type: string
+  push:
+    branches:
+      - dev
+      - stg
 
-permissions:
-  contents: write
-  id-token: write
+env:
+  AWS_REGION: us-east-1
 
 jobs:
-  synth-and-upload:
+  synth-upload:
     runs-on: ubuntu-latest
 
-    env:
-      ENV_ID: ${{ inputs.env_id }}
-      AWS_REGION: us-east-1
-      BUCKET_NAME: test-1-git
-      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || 
-                      inputs.env_id == 'stg' && 'test-sample-2' || 
-                      'test-sample-3' }}
+    permissions:
+      contents: write
+      id-token: write
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Set up Maven
-        uses: s4u/setup-maven-action@v1.11.0
-        with:
-          maven-version: '3.9.6'
-
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-      - name: Build CDK project
-        run: mvn clean install
-
-      - name: Synth CDK and save output
-        run: |
-          mkdir -p cfn
-          TEMPLATE=cfn/cdk-${ENV_ID}.template.yml
-          cdk synth --context env=${ENV_ID} > $TEMPLATE
-          echo "✅ Synth complete: $TEMPLATE"
-
-      - name: Configure AWS Credentials (dev only)
-        if: env.ENV_ID == 'dev'
+      - name: Setup AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
+          role-to-assume: ${{ github.ref == 'refs/heads/dev' && 'arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.' || 'arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo' }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload to S3 (dev only)
-        if: env.ENV_ID == 'dev'
+      - name: Install dependencies
         run: |
-          FILE_NAME=${ENV_ID}-test-demo-stack-${GITHUB_SHA::7}.yml
-          aws s3 cp cfn/cdk-${ENV_ID}.template.yml \
-            s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
-            --region $AWS_REGION
+          npm install -g aws-cdk
+          mvn install -DskipTests=true
+
+      - name: CDK Synth
+        run: |
+          ENV_ID=$(echo "${GITHUB_REF##*/}")
+          cdk synth > cdk.out/cdk-${ENV_ID}.template.yml
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
 
       - name: Commit synthesized template to repo
         run: |
           git config --global user.name "cdk-bot"
           git config --global user.email "cdk-bot@example.com"
 
-          git pull --rebase
+          ENV_ID=$(echo "${GITHUB_REF##*/}")
+          FOLDER="synth-templates/${ENV_ID}"
+          FILE_NAME="cdk-${ENV_ID}.template.yml"
 
-          FILE=cfn/cdk-${ENV_ID}.template.yml
-          git add $FILE
+          mkdir -p $FOLDER
+          cp cdk.out/$FILE_NAME $FOLDER/
 
-          if git diff --cached --quiet; then
-            echo "🟡 No changes to commit."
-          else
-            git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
-            git push
-            echo "✅ Committed synthesized template to GitHub."
-          fi
+          git add $FOLDER/$FILE_NAME
+          git commit -m "Add synthesized template for ${ENV_ID}: ${GITHUB_SHA::7}" || echo "No changes to commit"
+
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          git push
