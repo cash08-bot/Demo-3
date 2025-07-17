@@ -1,10 +1,10 @@
-name: Automate CDK (Validate + Synth Trigger)
+name: Automate CDK (Validate + Synth + Commit Trigger)
 
 on:
   push:
-    branches: [dev, stg]
+    branches: [dev, stg, prd]
   pull_request:
-    branches: [dev, stg, main]
+    branches: [dev, stg, prd, main]
 
 permissions:
   id-token: write
@@ -34,21 +34,32 @@ jobs:
             exit 1
           fi
 
-          if [[ "${GITHUB_BASE_REF}" == "main" && "${GITHUB_HEAD_REF}" != "stg" ]]; then
-            echo "❌ Only 'stg' can raise PRs to 'main'"
+          if [[ "${GITHUB_BASE_REF}" == "prd" && "${GITHUB_HEAD_REF}" != "stg" ]]; then
+            echo "❌ Only 'stg' can raise PRs to 'prd'"
+            exit 1
+          fi
+
+          if [[ "${GITHUB_BASE_REF}" == "main" && "${GITHUB_HEAD_REF}" != "prd" ]]; then
+            echo "❌ Only 'prd' can raise PRs to 'main'"
             exit 1
           fi
 
           echo "✅ PR branch structure is valid."
 
-  synth-and-upload-dev:
+  synth-dev:
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
-    uses: cash08-bot/Demo-3/.github/workflows/cdk-synth-upload.yml@dev
+    uses: ./.github/workflows/cdk-synth-upload.yml
     with:
       env_id: dev
 
-  synth-and-upload-stg:
+  synth-stg:
     if: github.ref == 'refs/heads/stg' && github.event_name == 'push'
-    uses: cash08-bot/Demo-3/.github/workflows/cdk-synth-upload.yml@stg
+    uses: ./.github/workflows/cdk-synth-upload.yml
     with:
       env_id: stg
+
+  synth-prd:
+    if: github.ref == 'refs/heads/prd' && github.event_name == 'push'
+    uses: ./.github/workflows/cdk-synth-upload.yml
+    with:
+      env_id: prd
