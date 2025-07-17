@@ -1,4 +1,4 @@
-name: CDK Synth & Upload + Commit + Email
+name: CDK Synth & Upload + Commit
 
 on:
   workflow_call:
@@ -26,8 +26,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -48,21 +46,17 @@ jobs:
       - name: Install AWS CDK
         run: npm install -g aws-cdk
 
-      - name: Build Java CDK project
+      - name: Build CDK project
         run: mvn clean install
 
-      - name: Run CDK synth and save to cfn folder
+      - name: Synth CDK and save output
         run: |
-          mkdir -p ./cfn
-          TEMPLATE_FILE=cfn/cdk-${ENV_ID}.template.yml
-          cdk synth --context env=${ENV_ID} > $TEMPLATE_FILE
-          if [ $? -ne 0 ]; then
-            echo "❌ CDK synth failed"
-            exit 1
-          fi
-          echo "✅ Synth completed: $TEMPLATE_FILE"
+          mkdir -p cfn
+          TEMPLATE=cfn/cdk-${ENV_ID}.template.yml
+          cdk synth --context env=${ENV_ID} > $TEMPLATE
+          echo "✅ Synth complete: $TEMPLATE"
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS Credentials (dev only)
         if: env.ENV_ID == 'dev'
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -77,44 +71,20 @@ jobs:
             s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
             --region $AWS_REGION
 
-      #- name: Commit synthesized template to repo
-        #run: |
-          #git config --global user.name "cdk-bot"
-          #git config --global user.email "cdk-bot@example.com"
+      - name: Commit synthesized template to repo
+        run: |
+          git config --global user.name "cdk-bot"
+          git config --global user.email "cdk-bot@example.com"
 
-          #FILE=cfn/cdk-${ENV_ID}.template.yml
-          #git pull --rebase
-          #git add $FILE
+          git pull --rebase
 
-          #if git diff --cached --quiet; then
-            #echo " No changes to commit."
-          #else
-            #git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
-            #git push
-            #echo " Committed template to GitHub."
-          #fi
+          FILE=cfn/cdk-${ENV_ID}.template.yml
+          git add $FILE
 
-      #- name: Send Approval Email via Gmail
-        #uses: dawidd6/action-send-mail@v3
-        #with:
-          #server_address: smtp.gmail.com
-          #server_port: 587
-          #username: ${{ secrets.GMAIL_USER }}
-          #password: ${{ secrets.GMAIL_PASS }}
-          #subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
-          #to: cloudteam@example.com
-          #from: CDK Bot <${{ secrets.GMAIL_USER }}>
-          #secure: false
-          #body: |
-            #Hello Cloud Team,
-
-            #A new CloudFormation template has been synthesized for **${{ env.ENV_ID }}**.
-
-           # 📄 Review the synthesized template:
-            #https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/cfn/cdk-${{ env.ENV_ID }}.template.yml
-
-            #🔗 View GitHub Action:
-            #https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            #Regards,  
-            #CDK Automation Bot*/
+          if git diff --cached --quiet; then
+            echo "🟡 No changes to commit."
+          else
+            git commit -m "Update CDK template for ${ENV_ID}: ${GITHUB_SHA::7}"
+            git push
+            echo "✅ Committed synthesized template to GitHub."
+          fi
