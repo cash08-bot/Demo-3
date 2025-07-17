@@ -1,32 +1,6 @@
-<<<<<<< HEAD
-.classpath.txt
-target
-.classpath
-.project
-.idea
-.settings
-.vscode
-*.iml
-
-# CDK asset staging directory
-.cdk.staging
-cdk.out
-/cfn/*
-!cfn/.keep
-=======
-# Compiled class file
+# Java & IDE artifacts
 *.class
-
-# Log file
 *.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
 *.jar
 *.war
 *.nar
@@ -34,8 +8,22 @@ cdk.out
 *.zip
 *.tar.gz
 *.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+*.ctxt
+*.iml
+*.project
+*.classpath
 hs_err_pid*
 replay_pid*
->>>>>>> origin/main
+.mtj.tmp/
+
+# IDE folders
+.idea/
+.settings/
+.vscode/
+target/
+
+# CDK asset staging directory
+.cdk.staging/
+cdk.out/
+cfn/*
+!cfn/.keep
