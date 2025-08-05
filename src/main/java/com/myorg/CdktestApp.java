@@ -4,39 +4,39 @@ import software.amazon.awscdk.App;
 import software.amazon.awscdk.Environment;
 import software.amazon.awscdk.StackProps;
 
-import java.util.Arrays;
+import java.util.Map;
 
 public class CdktestApp {
     public static void main(final String[] args) {
         App app = new App();
 
-        new CdktestStack(app, "CdktestStack", StackProps.builder()
-                // If you don't specify 'env', this stack will be environment-agnostic.
-                // Account/Region-dependent features and context lookups will not work,
-                // but a single synthesized template can be deployed anywhere.
+        // Get the environment identifier from CDK context (pass with --context env=dev or stg)
+        String envId = (String) app.getNode().tryGetContext("env");
+        if (envId == null) {
+            throw new IllegalArgumentException("Context variable 'env' must be provided, e.g., --context env=dev");
+        }
 
-                // Uncomment the next block to specialize this stack for the AWS Account
-                // and Region that are implied by the current CLI configuration.
-                /*
-                .env(Environment.builder()
-                        .account(System.getenv("CDK_DEFAULT_ACCOUNT"))
-                        .region(System.getenv("CDK_DEFAULT_REGION"))
-                        .build())
-                */
-
-                // Uncomment the next block if you know exactly what Account and Region you
-                // want to deploy the stack to.
-                
-                .env(Environment.builder()
-                        .account("123456789012")
+        // Map of environment name to AWS account and region
+        Map<String, Environment> envMap = Map.of(
+                "dev", Environment.builder()
+                        .account("381492133980")
                         .region("us-east-1")
-                        .build())
-                
+                        .build(),
+                "stg", Environment.builder()
+                        .account("614056699201")
+                        .region("us-east-1")
+                        .build()
+        );
 
-                // For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
+        Environment targetEnv = envMap.get(envId);
+        if (targetEnv == null) {
+            throw new IllegalArgumentException("Unknown environment: " + envId);
+        }
+
+        new CdktestStack(app, "CdktestStack-" + envId, StackProps.builder()
+                .env(targetEnv)
                 .build());
 
         app.synth();
     }
 }
-
