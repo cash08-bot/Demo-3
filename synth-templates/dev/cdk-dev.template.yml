@@ -10,7 +10,7 @@ Resources:
   CDKMetadata:
     Type: AWS::CDK::Metadata
     Properties:
-      Analytics: v2:deflate64:H4sIAAAAAAAA/zPSM7Q01TNQTCwv1k1OydbNyUzSqw4uSUzO1kksL44vLizWqw4sTS1Nja5WKssszkzKzMksqQzJzE3NLy1RslLSUqqN1XFOywOrqa3V8UosS9Q3NNcz0DM0VcwqzszULSrNK8nMTdULgtAAcEq0R3EAAAA=
+      Analytics: v2:deflate64:H4sIAAAAAAAA/zPSM7Q01TNQTCwv1k1OydbNyUzSqw4uSUzO1kksL44vLizWqw4sTS1Nja5WKssszkzKzMksqQzJzE3NLy1RslLSUqqN1XFOywOrqa3V8UosS9Q3NNcz0DM0U8wqzszULSrNK8nMTdULgtAAMOfMfnEAAAA=
     Metadata:
       aws:cdk:path: CdktestStack/CDKMetadata/Default
 Parameters:
