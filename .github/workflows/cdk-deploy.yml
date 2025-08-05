@@ -31,19 +31,28 @@ jobs:
       AWS_REGION: us-east-1
 
     steps:
-      - name: Exit if not target branch
+      - name: Print debug info
+        run: |
+          echo "Repo: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Branch (matrix): ${{ matrix.branch }}"
+          echo "Role ARN: ${{ matrix.role_arn }}"
+
+      - name: Exit if not matching matrix branch
         if: ${{ github.ref != format('refs/heads/{0}', matrix.branch) }}
         run: echo "Not matching matrix.branch. Skipping..." && exit 0
 
-      - uses: actions/checkout@v3
+      - name: Checkout source
+        uses: actions/checkout@v3
 
-      - name: Configure AWS (OIDC)
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ matrix.role_arn }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up Node/Maven/Java
+      - name: Set up Node.js, Maven, and Java
         run: |
           npm install -g aws-cdk
           mvn clean install
@@ -51,4 +60,4 @@ jobs:
       - name: CDK Deploy
         run: |
           echo "Deploying to $ENV_ID"
-          cdk deploy --require-approval never --context env=${{ env.ENV_ID }}
+          cdk deploy --require-approval never --context env=$ENV_ID
