@@ -1,4 +1,4 @@
-name: Automate CDK (Validate + Synth + Commit Trigger)
+name: Automate CDK (Validate + Synth Trigger)
 
 on:
   push:
