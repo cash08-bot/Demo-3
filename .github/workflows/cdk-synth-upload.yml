@@ -1,10 +1,14 @@
 name: CDK Synth and Upload
 
 on:
-  push:
-    branches:
-      - dev
-      - stg
+  workflow_call:
+    inputs:
+      env_id:
+        required: true
+        type: string
+      role_to_assume:
+        required: true
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -35,36 +39,32 @@ jobs:
       - name: Setup AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: ${{ github.ref == 'refs/heads/dev' && 'arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.' || 'arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo' }}
+          role-to-assume: ${{ inputs.role_to_assume }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install dependencies
         run: |
           npm install -g aws-cdk
           mvn install -DskipTests=true
+
       - name: Synth CDK
         run: |
-         ENV_ID=$(echo "${GITHUB_REF##*/}")
           mkdir -p cdk.out
-          cdk synth --context env=$ENV_ID > cdk.out/cdk-${ENV_ID}.template.yml
-
-        env:
-          JAVA_HOME: ${{ env.JAVA_HOME }}
+          cdk synth --context env=${{ inputs.env_id }} > cdk.out/cdk-${{ inputs.env_id }}.template.yml
 
       - name: Commit synthesized template to repo
         run: |
           git config --global user.name "cdk-bot"
           git config --global user.email "cdk-bot@example.com"
 
-          ENV_ID=$(echo "${GITHUB_REF##*/}")
-          FOLDER="synth-templates/${ENV_ID}"
-          FILE_NAME="cdk-${ENV_ID}.template.yml"
+          FOLDER="synth-templates/${{ inputs.env_id }}"
+          FILE_NAME="cdk-${{ inputs.env_id }}.template.yml"
 
           mkdir -p $FOLDER
           cp cdk.out/$FILE_NAME $FOLDER/
 
           git add $FOLDER/$FILE_NAME
-          git commit -m "Add synthesized template for ${ENV_ID}: ${GITHUB_SHA::7}" || echo "No changes to commit"
+          git commit -m "Add synthesized template for ${{ inputs.env_id }}: ${GITHUB_SHA::7}" || echo "No changes to commit"
 
           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
           git push
