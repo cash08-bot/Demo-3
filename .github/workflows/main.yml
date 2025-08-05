@@ -2,7 +2,7 @@ name: Automate CDK (Validate + Synth + Commit Trigger)
 
 on:
   push:
-    branches: [dev, stg, prd]
+    branches: [dev, stg]
   pull_request:
     branches: [dev, stg, prd, main]
 
@@ -51,15 +51,11 @@ jobs:
     uses: ./.github/workflows/cdk-synth-upload.yml
     with:
       env_id: dev
+      role_to_assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
 
   synth-stg:
     if: github.ref == 'refs/heads/stg' && github.event_name == 'push'
     uses: ./.github/workflows/cdk-synth-upload.yml
     with:
       env_id: stg
-
-  synth-prd:
-    if: github.ref == 'refs/heads/prd' && github.event_name == 'push'
-    uses: ./.github/workflows/cdk-synth-upload.yml
-    with:
-      env_id: prd
+      role_to_assume: arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo
