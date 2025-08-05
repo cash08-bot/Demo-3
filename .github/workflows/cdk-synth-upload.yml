@@ -1,4 +1,4 @@
-name: CDK Synth & Upload + Email Notification
+name: CDK Synth and Upload
 
 on:
   workflow_call:
@@ -6,86 +6,65 @@ on:
       env_id:
         required: true
         type: string
+      role_to_assume:
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-east-1
 
 jobs:
-  synth-and-upload:
+  synth-upload:
     runs-on: ubuntu-latest
 
-    env:
-      ENV_ID: ${{ inputs.env_id }}
-      AWS_REGION: us-east-1
-      BUCKET_NAME: test-1-git
-      FOLDER_NAME: ${{ inputs.env_id == 'dev' && 'test-sample-1' || inputs.env_id == 'stg' && 'test-sample-2' }}
+    permissions:
+      contents: write
+      id-token: write
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Set up Maven
-        uses: s4u/setup-maven-action@v1.11.0
-        with:
-          maven-version: '3.9.6'
-
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-      - name: Build Java CDK project
-        run: mvn clean install
-
-      - name: Run CDK synth
-        run: |
-          mkdir -p cdk.out
-          cdk synth --context env=${{ env.ENV_ID }} --output cdk.out > cdk.out/cdk-${{ env.ENV_ID }}.template.yml
-          if [ $? -ne 0 ]; then
-            echo "CDK synth failed"
-            exit 1
-          fi
-
-      - name: Configure AWS credentials (OIDC)
+      - name: Setup AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: ${{ env.ENV_ID == 'dev' && 'arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.' || env.ENV_ID == 'stg' && 'arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo' || '' }}
+          role-to-assume: ${{ inputs.role_to_assume }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload to S3
+      - name: Install dependencies
         run: |
-          FILE_NAME=${ENV_ID}-test-demo-stack-${GITHUB_SHA::7}.yml
-          aws s3 cp cdk.out/cdk-${ENV_ID}.template.yml \
-            s3://${BUCKET_NAME}/${FOLDER_NAME}/${FILE_NAME} \
-            --region $AWS_REGION
+          npm install -g aws-cdk
+          mvn install -DskipTests=true
 
-      - name: Send Approval Email via Gmail
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: akashmuduganti0819@gmail.com
-          password: qrok yuvw nlrs btim
-          subject: "[Approval Needed] CDK Deployment to ${{ env.ENV_ID }}"
-          to: akashreddy6211@gmail.com
-          from: CDK Bot akashmuduganti0819@gmail.com
-          secure: false
-          body: |
-            Hello Cloud Team,
+      - name: Synth CDK
+        run: |
+          mkdir -p cdk.out
+          cdk synth --context env=${{ inputs.env_id }} > cdk.out/cdk-${{ inputs.env_id }}.template.yml
 
-            A new CloudFormation template has been synthesized for **${{ env.ENV_ID }}**.
+      - name: Commit synthesized template to repo
+        run: |
+          git config --global user.name "cdk-bot"
+          git config --global user.email "cdk-bot@example.com"
 
-            📄 Template:
-            https://s3.amazonaws.com/${{ env.BUCKET_NAME }}/${{ env.FOLDER_NAME }}/${{ env.ENV_ID }}-test-demo-stack-${{ github.sha }}.yml
+          FOLDER="synth-templates/${{ inputs.env_id }}"
+          FILE_NAME="cdk-${{ inputs.env_id }}.template.yml"
 
-            🔗 Review & Approve Deployment:
-            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          mkdir -p $FOLDER
+          cp cdk.out/$FILE_NAME $FOLDER/
 
-            Regards,
-            CDK Automation Bot
+          git add $FOLDER/$FILE_NAME
+          git commit -m "Add synthesized template for ${{ inputs.env_id }}: ${GITHUB_SHA::7}" || echo "No changes to commit"
+
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
+          git push
