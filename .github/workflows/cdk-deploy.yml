@@ -35,6 +35,14 @@ jobs:
         if: ${{ github.ref != format('refs/heads/{0}', matrix.branch) }}
         run: echo "Not matching matrix.branch. Skipping..." && exit 0
 
+      - name: Debug GitHub context (optional)
+        run: |
+          echo "Repo: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Branch: ${{ matrix.branch }}"
+          echo "Role ARN: ${{ matrix.role_arn }}"
+
       - uses: actions/checkout@v3
 
       - name: Configure AWS (OIDC)
@@ -43,7 +51,7 @@ jobs:
           role-to-assume: ${{ matrix.role_arn }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up Node/Maven/Java
+      - name: Set up Node.js, Java, and Maven
         run: |
           npm install -g aws-cdk
           mvn clean install
