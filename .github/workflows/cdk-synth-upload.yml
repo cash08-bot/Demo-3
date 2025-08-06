@@ -1,4 +1,4 @@
-name: CDK Synth and Upload
+name: CDK Synth and Email Template
 
 on:
   workflow_call:
@@ -12,9 +12,12 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  RECIPIENT_EMAIL: akashreddy6211@gmail.com
+  GMAIL_USERNAME: akashreddy6211@gmail.com
+  GMAIL_PASSWORD: oqyl ceom aswj kyen 
 
 jobs:
-  synth-upload:
+  synth-upload-email:
     runs-on: ubuntu-latest
 
     permissions:
@@ -25,16 +28,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+      - name: Setup Java, Node, CDK
+        run: |
+          sudo apt update
+          sudo apt install -y npm
+          npm install -g aws-cdk
+          sudo apt install -y maven
+          java -version
+          mvn -version
 
       - name: Setup AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v3
@@ -42,31 +43,22 @@ jobs:
           role-to-assume: ${{ inputs.role_to_assume }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install dependencies
+      - name: Build and synth
         run: |
-          npm install -g aws-cdk
           mvn install -DskipTests=true
+          cdk synth --context env=${{ inputs.env_id }} > cdk-${{ inputs.env_id }}.template.yml
 
-      - name: Synth CDK
-        run: |
-          mkdir -p cdk.out
-          cdk synth --context env=${{ inputs.env_id }} > cdk.out/cdk-${{ inputs.env_id }}.template.yml
-
-      - name: Zip Synth Output
-        run: |
-          cd cdk.out
-          zip ../cdk-${{ inputs.env_id }}.zip *
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Send Email with Template Attachment
+        uses: dawidd6/action-send-mail@v3
         with:
-          name: "CDK Synth Output - ${{ inputs.env_id }}"
-          tag_name: "cdk-synth-${{ inputs.env_id }}-${{ github.sha }}"
-          draft: false
-          prerelease: false
-
-      - name: Upload Synth ZIP to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: "cdk-synth-${{ inputs.env_id }}-${{ github.sha }}"
-          files: cdk-${{ inputs.env_id }}.zip
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ env.GMAIL_USERNAME }}
+          password: ${{ env.GMAIL_PASSWORD }}
+          subject: "[Review Required] CDK Template for ${{ inputs.env_id }}"
+          to: ${{ env.RECIPIENT_EMAIL }}
+          from: ${{ env.GMAIL_USERNAME }}
+          body: |
+            Please review the attached CloudFormation template for the '${{ inputs.env_id }}' environment.
+          attachments: |
+            cdk-${{ inputs.env_id }}.template.yml
