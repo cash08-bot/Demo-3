@@ -24,23 +24,23 @@ jobs:
 
           if [[ "${GITHUB_BASE_REF}" == "dev" ]]; then
             if [[ ! "${GITHUB_HEAD_REF}" =~ ^(feature|bug|fix)/.+$ ]]; then
-              echo "❌ Branch name must start with 'feature/', 'bug/', or 'fix/' when targeting 'dev'"
+              echo " Branch name must start with 'feature/', 'bug/', or 'fix/' when targeting 'dev'"
               exit 1
             fi
           fi
 
           if [[ "${GITHUB_BASE_REF}" == "stg" && "${GITHUB_HEAD_REF}" != "dev" ]]; then
-            echo "❌ Only 'dev' can raise PRs to 'stg'"
+            echo " Only 'dev' can raise PRs to 'stg'"
             exit 1
           fi
 
           if [[ "${GITHUB_BASE_REF}" == "prd" && "${GITHUB_HEAD_REF}" != "stg" ]]; then
-            echo "❌ Only 'stg' can raise PRs to 'prd'"
+            echo " Only 'stg' can raise PRs to 'prd'"
             exit 1
           fi
 
           if [[ "${GITHUB_BASE_REF}" == "main" && "${GITHUB_HEAD_REF}" != "prd" ]]; then
-            echo "❌ Only 'prd' can raise PRs to 'main'"
+            echo " Only 'prd' can raise PRs to 'main'"
             exit 1
           fi
 
