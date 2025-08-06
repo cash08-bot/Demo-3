@@ -1,61 +1,40 @@
-name: Automate CDK (Validate + Synth Trigger)
+name: Main Validation and Synth Trigger
 
 on:
-  push:
-    branches: [dev, stg]
   pull_request:
-    branches: [dev, stg, prd, main]
-
-permissions:
-  id-token: write
-  contents: write
-  actions: write
-  pull-requests: write
+    branches:
+      - dev
+      - stg
 
 jobs:
-  validate-pr:
-    if: github.event_name == 'pull_request'
+  validate-and-trigger:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
     steps:
-      - name: Validate PR Source Branch
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Determine environment
+        id: env
         run: |
-          echo "SOURCE BRANCH: ${GITHUB_HEAD_REF}"
-          echo "TARGET BRANCH: ${GITHUB_BASE_REF}"
-
-          if [[ "${GITHUB_BASE_REF}" == "dev" ]]; then
-            if [[ ! "${GITHUB_HEAD_REF}" =~ ^(feature|bug|fix)/.+$ ]]; then
-              echo "❌ Branch name must start with 'feature/', 'bug/', or 'fix/' when targeting 'dev'"
-              exit 1
-            fi
-          fi
-
-          if [[ "${GITHUB_BASE_REF}" == "stg" && "${GITHUB_HEAD_REF}" != "dev" ]]; then
-            echo "❌ Only 'dev' can raise PRs to 'stg'"
+          TARGET_BRANCH="${{ github.base_ref }}"
+          if [[ "$TARGET_BRANCH" == "dev" ]]; then
+            echo "env_id=dev" >> $GITHUB_OUTPUT
+            echo "role_to_assume=arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction" >> $GITHUB_OUTPUT
+          elif [[ "$TARGET_BRANCH" == "stg" ]]; then
+            echo "env_id=stg" >> $GITHUB_OUTPUT
+            echo "role_to_assume=arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo" >> $GITHUB_OUTPUT
+          else
+            echo "Invalid target branch: $TARGET_BRANCH"
             exit 1
           fi
 
-          if [[ "${GITHUB_BASE_REF}" == "prd" && "${GITHUB_HEAD_REF}" != "stg" ]]; then
-            echo "❌ Only 'stg' can raise PRs to 'prd'"
-            exit 1
-          fi
-
-          if [[ "${GITHUB_BASE_REF}" == "main" && "${GITHUB_HEAD_REF}" != "prd" ]]; then
-            echo "❌ Only 'prd' can raise PRs to 'main'"
-            exit 1
-          fi
-
-          echo "✅ PR branch structure is valid."
-
-  synth-dev:
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
-    uses: ./.github/workflows/cdk-synth-upload.yml
-    with:
-      env_id: dev
-      role_to_assume: arn:aws:iam::381492133980:role/GitHubAction-AssumeRoleWithAction.
-
-  synth-stg:
-    if: github.ref == 'refs/heads/stg' && github.event_name == 'push'
-    uses: ./.github/workflows/cdk-synth-upload.yml
-    with:
-      env_id: stg
-      role_to_assume: arn:aws:iam::614056699201:role/Cdk-deploy-dev-demo
+      - name: Trigger synth + email workflow
+        uses: peter-evans/workflow-dispatch@v1
+        with:
+          workflow: cdk-synth-upload.yml
+          ref: ${{ github.base_ref }}
+          inputs: 
+            env_id: ${{ steps.env.outputs.env_id }}
+            role_to_assume: ${{ steps.env.outputs.role_to_assume }}
